@@ -1,3 +1,8 @@
+using Amazon;
+using Amazon.S3;
+using Amazon.S3.Model;
+using microservices.entertainment.Data.Contracts;
+using microservices.entertainment.Data;
 using microservices.entertainment.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Drawing;
@@ -12,9 +17,15 @@ namespace microservices.entertainment.Controllers
     {
         private readonly string contentRootPath;
 
-        public ConsumerController(IWebHostEnvironment environment)
+        private readonly IConfiguration _configuration;
+
+        private readonly IVoucherDataManager _data;
+
+        public ConsumerController(IWebHostEnvironment environment, IConfiguration configuration, IVoucherDataManager data)
         {
             contentRootPath = environment.ContentRootPath;
+            _configuration = configuration;
+            _data = data;
         }
 
         #region ACTIONS
@@ -26,7 +37,7 @@ namespace microservices.entertainment.Controllers
         /// <param name="type">Voucher type.</param>
         /// <returns></returns>
         [HttpGet(Name = "Voucher")]
-        public ActionResult GetVoucher(Guid token, string type)
+        public async Task<ActionResult> GetVoucher(Guid token, string type)
         {
             try
             {
@@ -42,7 +53,7 @@ namespace microservices.entertainment.Controllers
                 {
                     // 2. Create a jpg image for this user with the correct voucher details
                     // 3. Upload the image to the S3 bucket that stores the voucher images
-                    var imageUrl = GenerateVoucherImage(validationResult.Redemption);
+                    var imageUrl = await GenerateVoucherImageAsync(validationResult.Redemption).ConfigureAwait(false);
 
                     response.Messages = new List<string> { "Success" };
                     response.Result = new Voucher { Uri = imageUrl };
@@ -61,16 +72,17 @@ namespace microservices.entertainment.Controllers
         #endregion
 
         #region PRIVATE METHODS
+
         /// <summary>
         /// Generates voucher image.
         /// </summary>
         /// <param name="redemption"></param>
         /// <returns></returns>
-        private string GenerateVoucherImage(Redemption redemption)
+        private async Task<string> GenerateVoucherImageAsync(Redemption redemption)
         {
             var voucherImage = CreateVoucherImage(redemption);
 
-            return SaveVoucherImageJpeg(voucherImage, $"{redemption.User_id}_{redemption.Voucher_ticket}");
+            return await SaveVoucherImageJpegAsync(voucherImage, $"{redemption.User_id}_{redemption.Voucher_ticket}").ConfigureAwait(false);
         }
 
         /// <summary>
@@ -102,7 +114,7 @@ namespace microservices.entertainment.Controllers
                     graphics.DrawString(redemptionValueCurrency, arialFont, Brushes.DarkBlue, redemptionValueCurrency_location);
                     graphics.DrawString(redemptionValue, arialFont, Brushes.DarkBlue, redemptionValue_location);
                 }
-                
+
                 using (Font arialFont = new Font("Arial", 12, FontStyle.Bold))
                 {
                     graphics.DrawString(redemptionId, arialFont, Brushes.Black, redemptionId_location);
@@ -120,14 +132,54 @@ namespace microservices.entertainment.Controllers
         /// Saves the voucher image.
         /// </summary>
         /// <param name="voucherImageBytes">byte array.</param>
-        private string SaveVoucherImageJpeg(byte[] voucherImageBytes, string imageFileName)
+        private async Task<string> SaveVoucherImageJpegAsync(byte[] voucherImageBytes, string imageFileName)
         {
-            // TODO : Upload to S3 bucket.
+            #region Save into local directory
 
             // Temporarily saving into application folder.
-            var destFilePath = Path.Combine(contentRootPath, $"Assets\\Images\\{imageFileName}.jpg");
-            System.IO.File.WriteAllBytes(destFilePath, voucherImageBytes);
-            return destFilePath;
+            //var destFilePath = Path.Combine(contentRootPath, $"Assets\\Images\\{imageFileName}.jpg");
+            //System.IO.File.WriteAllBytes(destFilePath, voucherImageBytes);
+
+            #endregion
+
+            #region Upload to S3 bucket
+
+            var awsS3BucketName = _configuration.GetValue<string>("AwsS3Bucket:Name");
+            var awsS3BucketSubDirectoryPath = _configuration.GetValue<string>("AwsS3Bucket:SubDirectoryPath");
+            var awsS3BucketRegion = _configuration.GetValue<RegionEndpoint>("AwsS3Bucket:Region");
+            IAmazonS3 _awsS3Client = new AmazonS3Client(awsS3BucketRegion);
+
+            if (!string.IsNullOrWhiteSpace(awsS3BucketSubDirectoryPath))
+                awsS3BucketName = $"{awsS3BucketName}@/{awsS3BucketSubDirectoryPath}";
+
+            #region Option1: using PUT API
+            var awsS3UploadRequest = new PutObjectRequest
+            {
+                BucketName = awsS3BucketName,
+                Key = imageFileName,
+                ContentType = "text/plain",
+                InputStream = new MemoryStream(voucherImageBytes)
+            };
+            awsS3UploadRequest.Metadata.Add("x-amz-meta-title", imageFileName);
+
+            var aswS3UploadResponse = await _awsS3Client.PutObjectAsync(awsS3UploadRequest).ConfigureAwait(false);
+            #endregion
+
+            #region Option2: using TransferUtility
+            //TransferUtility utility = new TransferUtility(_awsS3Client);
+            //TransferUtilityUploadRequest uploadRequest = new TransferUtilityUploadRequest
+            //{
+            //    BucketName = awsS3BucketName,
+            //    Key = imageFileName,
+            //    InputStream = new MemoryStream(voucherImageBytes)
+            //};
+
+            //await utility.UploadAsync(uploadRequest).ConfigureAwait(false);
+            #endregion
+            
+            #endregion
+
+            return String.Empty; // ToDo: return the S3 bucket URL of the image.
         }
 
         #endregion
@@ -141,20 +193,18 @@ namespace microservices.entertainment.Controllers
         /// <param name="voucherTicket"></param>
         private (bool IsValid, Redemption Redemption) ValidateVoucherRedemption(Guid userId, Guid voucherTicket)
         {
-            // TODO: Fetch the DB record for the given user_id and voucher ticket.
+            var validationResult = (false, new Redemption());
+
             // Check the redemption table to ensure that the user and the voucher ticket match and are still valid
-
-            // Assuming for the given user_id and voucher ticket there will be single record in the DB.
-
-            return (true, new Redemption
+            // Assuming that for the given user_id and voucher ticket there will be single record in the DB.
+            var redemption = _data.GetRedemption(userId, voucherTicket);
+            
+            if (redemption?.User_id == userId)
             {
-                Redemption_id = 123456,
-                User_id = userId,
-                Voucher_ticket = voucherTicket,
-                Redemption_value = 25,
-                Redemption_value_currency = "$",
-                Redemption_date = DateTime.Now
-            });
+                validationResult = (true, redemption);
+            }
+
+            return validationResult;
         }
 
         #endregion
