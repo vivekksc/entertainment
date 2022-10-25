@@ -1,31 +1,40 @@
 using Amazon;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Entertainment.Microservices.Responses;
+using MediatR;
 using microservices.entertainment.Data.Contracts;
-using microservices.entertainment.Data;
 using microservices.entertainment.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Drawing;
 using System.Drawing.Imaging;
+using static microservices.entertainment.Consumer.Commands.Voucher.GenerateVoucher;
 using Image = System.Drawing.Image;
 
 namespace microservices.entertainment.Controllers
 {
+    [Authorize(AuthenticationSchemes = "JwtAuth")]
     [ApiController]
-    [Route("[controller]/[action]")]
+    [Route("consumer")]
     public class ConsumerController : ControllerBase
     {
         private readonly string contentRootPath;
-
         private readonly IConfiguration _configuration;
-
         private readonly IVoucherDataManager _data;
+        private readonly IMediator _mediator;
+        private readonly IActionResultFactory _actionResultFactory;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public ConsumerController(IWebHostEnvironment environment, IConfiguration configuration, IVoucherDataManager data)
+        public ConsumerController(IMediator mediator, IActionResultFactory actionResultFactory, IHttpContextAccessor httpContextAccessor,
+            IWebHostEnvironment environment, IConfiguration configuration, IVoucherDataManager data)
         {
-            contentRootPath = environment.ContentRootPath;
+            _mediator = mediator;
+            _actionResultFactory = actionResultFactory;
+            _httpContextAccessor = httpContextAccessor;
             _configuration = configuration;
             _data = data;
+            contentRootPath = environment.ContentRootPath;
         }
 
         #region ACTIONS
@@ -36,8 +45,26 @@ namespace microservices.entertainment.Controllers
         /// <param name="token">Voucher Access Token from Redemption call.</param>
         /// <param name="type">Voucher type.</param>
         /// <returns></returns>
-        [HttpGet(Name = "Voucher")]
-        public async Task<ActionResult> GetVoucher(Guid token, string type)
+        [HttpGet("voucher")]
+        public async Task<IActionResult> GetVoucher(Guid token, string type)
+        {
+            // Assuming the user info will be acquired from the Request context
+            Guid userId = Guid.NewGuid(); // TODO: Assign the user info from context.
+            var command = new Command { Token = token, UserId = userId };
+
+            var response = await _mediator.Send(command).ConfigureAwait(false);
+
+            return _actionResultFactory.CreateResultFromResponseModel(response);
+        }
+
+        /// <summary>
+        /// Get voucher details.
+        /// </summary>
+        /// <param name="token">Voucher Access Token from Redemption call.</param>
+        /// <param name="type">Voucher type.</param>
+        /// <returns></returns>
+        [HttpGet]
+        public async Task<ActionResult> GetVoucher_PREV(Guid token, string type)
         {
             try
             {
@@ -78,11 +105,11 @@ namespace microservices.entertainment.Controllers
         /// </summary>
         /// <param name="redemption"></param>
         /// <returns></returns>
-        private async Task<string> GenerateVoucherImageAsync(Redemption redemption)
+        private async Task<string> GenerateVoucherImageAsync(RedemptionModel redemption)
         {
             var voucherImage = CreateVoucherImage(redemption);
 
-            return await SaveVoucherImageJpegAsync(voucherImage, $"{redemption.User_id}_{redemption.Voucher_ticket}").ConfigureAwait(false);
+            return await SaveVoucherImageJpegAsync(voucherImage, $"{redemption.UserId}_{redemption.VoucherTicket}").ConfigureAwait(false);
         }
 
         /// <summary>
@@ -90,15 +117,15 @@ namespace microservices.entertainment.Controllers
         /// </summary>
         /// <param name="redemption"></param>
         /// <returns></returns>
-        private byte[] CreateVoucherImage(Redemption redemption)
+        private byte[] CreateVoucherImage(RedemptionModel redemption)
         {
             if (redemption == null)
                 return new byte[0];
 
-            var redemptionId = $"REDEMPTION ID: {redemption.Redemption_id}";
-            var redemptionDate = $"Expires: {redemption.Redemption_date:MMM dd, yyyy}";
-            var redemptionValue = redemption.Redemption_value.ToString();
-            var redemptionValueCurrency = redemption.Redemption_value_currency;
+            var redemptionId = $"REDEMPTION ID: {redemption.RedemptionId}";
+            var redemptionDate = $"Expires: {redemption.RedemptionDate:MMM dd, yyyy}";
+            var redemptionValue = redemption.RedemptionValue.ToString();
+            var redemptionValueCurrency = redemption.RedemptionValueCurrency;
 
             PointF redemptionValueCurrency_location = new(285f, 92f);
             PointF redemptionValue_location = new(295f, 92f);
@@ -176,7 +203,7 @@ namespace microservices.entertainment.Controllers
 
             //await utility.UploadAsync(uploadRequest).ConfigureAwait(false);
             #endregion
-            
+
             #endregion
 
             return String.Empty; // ToDo: return the S3 bucket URL of the image.
@@ -191,15 +218,15 @@ namespace microservices.entertainment.Controllers
         /// </summary>
         /// <param name="userId"></param>
         /// <param name="voucherTicket"></param>
-        private (bool IsValid, Redemption Redemption) ValidateVoucherRedemption(Guid userId, Guid voucherTicket)
+        private (bool IsValid, RedemptionModel Redemption) ValidateVoucherRedemption(Guid userId, Guid voucherTicket)
         {
-            var validationResult = (false, new Redemption());
+            var validationResult = (false, new RedemptionModel());
 
             // Check the redemption table to ensure that the user and the voucher ticket match and are still valid
             // Assuming that for the given user_id and voucher ticket there will be single record in the DB.
             var redemption = _data.GetRedemption(userId, voucherTicket);
-            
-            if (redemption?.User_id == userId)
+
+            if (redemption?.UserId == userId)
             {
                 validationResult = (true, redemption);
             }

@@ -1,8 +1,8 @@
 ﻿using microservices.entertainment.Models;
 
-namespace microservices.entertainment.Data.Contracts
+namespace microservices.entertainment.Repositories.Interfaces
 {
-    public  interface IVoucherDataManager
+    public interface IVoucherRepository
     {
         /// <summary>
         /// Gets redemption detail.
@@ -10,6 +10,6 @@ namespace microservices.entertainment.Data.Contracts
         /// <param name="userId"></param>
         /// <param name="voucherTicket"></param>
         /// <returns><see cref="RedemptionModel"/></returns>
-        RedemptionModel GetRedemption(Guid userId, Guid voucherTicket);
+        Task<RedemptionModel> GetRedemptionAsync(Guid userId, Guid voucherTicket);
     }
 }

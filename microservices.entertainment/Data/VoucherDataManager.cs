@@ -18,14 +18,14 @@ namespace microservices.entertainment.Data
         }
 
         ///<inheritdoc />
-        public Redemption GetRedemption(Guid userId, Guid voucherTicket)
+        public RedemptionModel GetRedemption(Guid userId, Guid voucherTicket)
         {
-            var redemption = new Redemption();
+            var redemption = new RedemptionModel();
 
             using (var connection = OpenDBConnection())
             {
                 var query = $"SELECT TOP 1 * FROM Redemption WHERE User_id = '{userId}' AND Voucher_ticket = '{voucherTicket}'";
-                var redemptions = connection.Query<Redemption>(query);
+                var redemptions = connection.Query<RedemptionModel>(query);
                 connection.Close();
 
                 if (redemptions?.Count() > 0)
