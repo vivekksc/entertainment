@@ -65,27 +65,44 @@ namespace microservices.entertainment.Services
             var redemptionDate = $"Expires: {redemption.RedemptionDate:MMM dd, yyyy}";
             var redemptionValue = redemption.RedemptionValue.ToString();
             var redemptionValueCurrency = redemption.RedemptionValueCurrency;
+            var redemptionBrandAddress = _configuration.GetValue<string>("Address:MeltingPoint");
 
             PointF redemptionValueCurrency_location = new(285f, 92f);
             PointF redemptionValue_location = new(295f, 92f);
             PointF redemptionId_location = new(110f, 145f);
             PointF redemptionDate_location = new(130f, 170f);
+            PointF redemptionBrandLogo_location = new(195f, 260f);
+            PointF redemptionBrandAddress_location = new(15f, 260f);
 
-            var sampleImageFilePath = Path.Combine(contentRootPath, "Assets/Images/sample.jpg");
-            Image imgBackground = Image.FromFile(sampleImageFilePath);
+            var voucherTemplateImageFilePath = Path.Combine(contentRootPath, "Assets/Images/voucher_template.jpg");
+            var brandLogoImageFilePath = Path.Combine(contentRootPath, "Assets/Images/logo_MeltingPoint.jpg");
+            Image imgBackground = Image.FromFile(voucherTemplateImageFilePath);
+            Image imgBrandLogo = Image.FromFile(brandLogoImageFilePath);
+
             using (Graphics graphics = Graphics.FromImage(imgBackground))
             {
-                using (Font arialFont = new Font("Arial", 14, FontStyle.Bold))
+                // Write voucher amount
+                using (Font arialFont = new Font("Calibri", 14, FontStyle.Bold))
                 {
                     graphics.DrawString(redemptionValueCurrency, arialFont, Brushes.DarkBlue, redemptionValueCurrency_location);
                     graphics.DrawString(redemptionValue, arialFont, Brushes.DarkBlue, redemptionValue_location);
                 }
 
-                using (Font arialFont = new Font("Arial", 12, FontStyle.Bold))
+                // Write voucher details
+                using (Font arialFont = new Font("Calibri", 12, FontStyle.Bold))
                 {
                     graphics.DrawString(redemptionId, arialFont, Brushes.Black, redemptionId_location);
                     graphics.DrawString(redemptionDate, arialFont, Brushes.Black, redemptionDate_location);
                 }
+
+                // Write Brand address
+                using (Font arialFont = new Font("Calibri", 11, FontStyle.Bold))
+                {
+                    graphics.DrawString(redemptionBrandAddress, arialFont, Brushes.Gray, redemptionBrandAddress_location);
+                }
+
+                // Embed brand logo
+                graphics.DrawImage(imgBrandLogo, redemptionBrandLogo_location);
             }
 
             var ms = new MemoryStream();
