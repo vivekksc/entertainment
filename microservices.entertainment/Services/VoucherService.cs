@@ -1,6 +1,7 @@
 ﻿using Amazon;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Amazon.S3.Transfer;
 using Entertainment.Microservices.Responses;
 using microservices.entertainment.Models;
 using microservices.entertainment.Repositories.Interfaces;
@@ -42,11 +43,20 @@ namespace microservices.entertainment.Services
         }
 
         /// <inheritdoc/>
-        public async Task<string> GenerateVoucherImageAsync(RedemptionModel redemption)
+        public async Task<VoucherResponseModel> GenerateVoucherImageAsync(RedemptionModel redemption)
         {
-            var voucherImage = CreateVoucherImage(redemption);
+            try
+            {
+                var voucherImage = CreateVoucherImage(redemption);
 
-            return await SaveVoucherImageJpegAsync(voucherImage, $"{redemption.UserId}_{redemption.VoucherTicket}").ConfigureAwait(false);
+                var imageUrl = await SaveVoucherImageJpegAsync(voucherImage, $"{redemption.UserId}_{redemption.VoucherTicket}").ConfigureAwait(false);
+                
+                return VoucherResponseModel.Success(imageUrl);
+            }
+            catch (Exception ex)
+            {
+                return VoucherResponseModel.Failed(ex.Message);
+            }
         }
 
         #region PRIVATE METHODS

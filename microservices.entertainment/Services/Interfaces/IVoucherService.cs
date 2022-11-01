@@ -18,6 +18,6 @@ namespace microservices.entertainment.Services.Interfaces
         /// </summary>
         /// <param name="redemption"></param>
         /// <returns></returns>
-        Task<string> GenerateVoucherImageAsync(RedemptionModel redemption);
+        Task<VoucherResponseModel> GenerateVoucherImageAsync(RedemptionModel redemption);
     }
 }

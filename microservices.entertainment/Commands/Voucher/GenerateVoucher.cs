@@ -2,6 +2,7 @@
 using MediatR;
 using FluentValidation;
 using microservices.entertainment.Services.Interfaces;
+using microservices.entertainment.Validation;
 
 namespace microservices.entertainment.Consumer.Commands.Voucher
 {
@@ -14,12 +15,13 @@ namespace microservices.entertainment.Consumer.Commands.Voucher
             public string Type { get; set; }
         }
 
-        public class Validator //: BaseValidator<Command>
+        public class Validator : BaseValidator<Command>
         {
             public Validator()
             {
-                //RuleFor(v => v.Email).NotNull().NotEmpty().EmailAddress();
-                //RuleFor(v => v.Password).NotNull().NotEmpty();
+                RuleFor(v => v.Token).NotNull().NotEmpty().NotEqual(Guid.Empty);
+                RuleFor(v => v.UserId).NotNull().NotEmpty().NotEqual(Guid.Empty);
+                RuleFor(v => v.Type).NotNull().NotEmpty();
             }
         }
 
@@ -39,13 +41,13 @@ namespace microservices.entertainment.Consumer.Commands.Voucher
                     string imageUrl = string.Empty;
                     var getRedemptionResponse = await _voucherService.GetRedemptionAsync(request.Token, request.UserId).ConfigureAwait(false);
 
-                    if (getRedemptionResponse.StatusCode == System.Net.HttpStatusCode.Found)
+                    if (getRedemptionResponse.StatusCode == System.Net.HttpStatusCode.Found
+                        && getRedemptionResponse.Redemption != null)
                     {
-                        var redemption = getRedemptionResponse?.Redemption;
-
-                        imageUrl = redemption != null
-                            ? await _voucherService.GenerateVoucherImageAsync(redemption).ConfigureAwait(false)
-                            : string.Empty;
+                        var redemption = getRedemptionResponse.Redemption;
+                        var response = await _voucherService.GenerateVoucherImageAsync(redemption).ConfigureAwait(false);
+                        if (response.IsSuccess)
+                            imageUrl = response.VoucherImageUrl;
                     }
                     else
                     {
