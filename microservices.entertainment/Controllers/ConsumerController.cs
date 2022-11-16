@@ -30,8 +30,6 @@ namespace microservices.entertainment.Controllers
             contentRootPath = environment.ContentRootPath;
         }
 
-        #region ACTIONS
-
         /// <summary>
         /// Get voucher details.
         /// </summary>
@@ -41,16 +39,12 @@ namespace microservices.entertainment.Controllers
         [HttpGet("voucher")]
         public async Task<IActionResult> GetVoucher(Guid token, string type)
         {
-            // Assuming the user info will be acquired from the Request context
-            Guid userId = Guid.NewGuid(); // TODO: Assign the user info from context.
-            var command = new Command { Token = token, UserId = userId };
+            var command = new Command { Token = token };
 
             var response = await _mediator.Send(command).ConfigureAwait(false);
 
             return _actionResultFactory.CreateResultFromResponseModel(response);
         }
-
-        #endregion
 
     }
 }

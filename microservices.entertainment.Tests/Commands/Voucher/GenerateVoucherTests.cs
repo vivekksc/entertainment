@@ -7,6 +7,7 @@ using microservices.entertainment.Responses;
 using microservices.entertainment.Services;
 using microservices.entertainment.Services.Interfaces;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -21,10 +22,12 @@ namespace microservices.entertainment.Tests.Commands.Voucher
     public class GenerateVoucherTests
     {
         private IVoucherService _voucherService;
+        private IHttpContextAccessor _httpContextAccessor;
 
         public GenerateVoucherTests()
         {
             _voucherService = A.Fake<IVoucherService>();
+            _httpContextAccessor = A.Fake<IHttpContextAccessor>();
         }
 
         [Fact]
@@ -35,7 +38,6 @@ namespace microservices.entertainment.Tests.Commands.Voucher
             var voucherTicket = Guid.NewGuid();
             var command = new Command()
             {
-                UserId = userId,
                 Token = voucherTicket
             };
             var testRedemptionData = new RedemptionModel
@@ -54,7 +56,7 @@ namespace microservices.entertainment.Tests.Commands.Voucher
                                                 .Returns(A<RedemptionModel>.Ignored);
             A.CallTo(() => _voucherService.GenerateVoucherImageAsync(testRedemptionData))
                                                .Returns(Task.FromResult(testVoucherResponseData));
-            var handler = new Handler(_voucherService);
+            var handler = new Handler(_voucherService, _httpContextAccessor);
             var result = await handler.Handle(command, CancellationToken.None);
 
             // ASSERT
@@ -69,7 +71,6 @@ namespace microservices.entertainment.Tests.Commands.Voucher
             var voucherTicket = Guid.NewGuid();
             var command = new Command()
             {
-                UserId = userId,
                 Token = voucherTicket
             };
             var testRedemptionData = new RedemptionModel
@@ -81,14 +82,14 @@ namespace microservices.entertainment.Tests.Commands.Voucher
                 RedemptionValueCurrency = "$",
                 RedemptionDate = DateTime.Now
             };
-            var testVoucherResponseData = VoucherResponseModel.Failed();
+            var testVoucherResponseData = VoucherResponseModel.Failed(String.Empty);
 
             // ACT
             A.CallTo(() => _voucherService.GetRedemptionAsync(userId, voucherTicket))
                                                 .Returns(A<RedemptionModel>.Ignored);
             A.CallTo(() => _voucherService.GenerateVoucherImageAsync(testRedemptionData))
                                                .Returns(Task.FromResult(testVoucherResponseData));
-            var handler = new Handler(_voucherService);
+            var handler = new Handler(_voucherService, _httpContextAccessor);
             var result = await handler.Handle(command, CancellationToken.None);
 
             // ASSERT

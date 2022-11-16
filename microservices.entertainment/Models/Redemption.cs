@@ -22,9 +22,7 @@ namespace microservices.entertainment.Models
 
         public static RedemptionModel GetRedemptionModel(Redemption redemption)
         {
-            return redemption == null
-                ? new()
-                : new()
+            return new()
                 {
                     RedemptionId = redemption.RedemptionId,
                     UserId = redemption.UserId,

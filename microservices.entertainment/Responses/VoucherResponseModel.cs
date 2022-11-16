@@ -16,13 +16,12 @@ namespace microservices.entertainment.Responses
             };
         }
 
-        public static VoucherResponseModel Failed(string message = null)
+        public static VoucherResponseModel Failed(string message)
         {
             return new VoucherResponseModel()
             {
                 StatusCode = System.Net.HttpStatusCode.InternalServerError,
-                Messages = message == null ? new List<string> { Constants.VOUCHER_IMAGE_GENERATION_FAILED }
-                                           : new List<string> { message }
+                Messages = new List<string> { message }
             };
         }
     }

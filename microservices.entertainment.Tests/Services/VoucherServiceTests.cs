@@ -128,7 +128,7 @@ namespace microservices.entertainment.Tests.Services
             response.ShouldNotBeNull();
             response.StatusCode.ShouldBe(System.Net.HttpStatusCode.InternalServerError);
             response.Messages.Count.ShouldBe(1);
-            response.Messages[0].ShouldBe(Constants.VOUCHER_IMAGE_GENERATION_FAILED);
+            response.Messages[0].ShouldBeNullOrEmpty();
         }
     }
 }

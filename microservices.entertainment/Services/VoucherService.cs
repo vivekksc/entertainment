@@ -7,6 +7,7 @@ using microservices.entertainment.Models;
 using microservices.entertainment.Repositories.Interfaces;
 using microservices.entertainment.Responses;
 using microservices.entertainment.Services.Interfaces;
+using microservices.entertainment.Utils;
 using System.Drawing;
 using System.Drawing.Imaging;
 
@@ -34,7 +35,7 @@ namespace microservices.entertainment.Services
                 var response = await _voucherRepository.GetRedemptionAsync(userId, voucherTicket).ConfigureAwait(false);
                 return response != null
                     ? RedemptionResponseModel.Success(response)
-                    : RedemptionResponseModel.NotFound();
+                    : RedemptionResponseModel.NotFound(Constants.REDEMPTION_NOTFOUND);
             }
             catch (Exception ex)
             {
